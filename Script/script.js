@@ -1,117 +1,94 @@
-let currentCardsArr = [];
+window.addEventListener("DOMContentLoaded", () => {
+    document.getElementById("fetch-data").addEventListener("click", () => {
+        document.getElementById("fetch-data").className = 'loading';
+        
+        const errorElement = document.querySelector(".home-page p");
 
-let searchBtn = document.querySelector(".container__add-city-btn button");
-searchBtn.addEventListener("click", () => {
-    let apiKey = "0d37d999b4705308cc960c47e35d754d"
-    let inputCityName = document.querySelector(".container__search-input input");
-    getWeatherDetails(apiKey, inputCityName.value.toLocaleLowerCase());
-    inputCityName.value = "";
-})
+        // convert timzone given by weather api into string
+        const secondsToTimeZoneString = (offsetSeconds) => {
+            const hours = Math.floor(offsetSeconds / 3600); 
+            const minutes = Math.floor((offsetSeconds % 3600) / 60); 
+            const sign = offsetSeconds < 0 ? '-' : '+';
+            const formattedOffset = `${sign}${Math.abs(hours).toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+            return `UTC${formattedOffset}`;
+        }
 
+        const degreesToWindDirection = (degrees) => {
+            const directions = ["North", "North-Northeast", "Northeast", "East-Northeast", "East", "East-Southeast", "Southeast", "South-Southeast", "South", "South-Southwest", "Southwest", "West-Southwest", "West", "West-Northwest", "Northwest", "North-Northwest"];
+            const index = Math.round(degrees / 22.5) % 16;
+            return directions[index];
+        }
 
-let error = document.querySelector(".error-message");
-async function getWeatherDetails(apiKey, cityName) {
-    try{
-    let Url = `https://api.openweathermap.org/data/2.5/weather?q=${cityName}&appid=${apiKey}&units=metric`
-    let response = await fetch(Url);
-    let data = await response.json();
-    createCard(data);
-    error.style.display = "none";
-    }catch (data) {
-        error.style.display = "block";
-    }
-}
+        /**
+         * Get current location of user.
+         * We'll use `GeoLocation` API.
+         */
+        if ("geolocation" in navigator) {
+            const useUserLocation = () => {
+                console.log("Fetching data")
+                navigator.geolocation.getCurrentPosition(function(position) {
+                    const latitude = position.coords.latitude;
+                    const longitude = position.coords.longitude;
+                    
+                    /**
+                     * Now we have location of user.
+                     * Let's fetch weather data and also show location in DOM.
+                     */
+                    document.getElementById("latitude").textContent = `Lat: ${latitude}`;
+                    document.getElementById("longitude").textContent = `Lat: ${longitude}`;
+                
+                    /**
+                     * We are using here `iframe` for showing google map
+                     * AIzaSyALJd4lJaW_3pOn-XeE5Bg0Be_FO5u9X0M
+                     */
+                    const iframe = document.createElement("iframe");
+                    iframe.style.cssText = "height:100%;width: 100%;border: 0;";
+                    iframe.frameBorder = "0";
+                    iframe.src = `https://maps.google.com/maps?q=${latitude},${longitude}&z=15&output=embed`;
+                    document.querySelector(".map").appendChild(iframe);
+    
+                    /**
+                     * Fetch weather information                                          
+                    */
 
-let cardsContainer = document.querySelector(".container__weather-cards");
-let weatherImg = document.querySelector(".weather-img img")
-function createCard(cityData) {
-    let maxTemp = Math.floor(cityData.main.temp_max);
-    let minTemp = Math.floor(cityData.main.temp_min);
-    let cityName = cityData.name;
-    let temperature = Math.floor(cityData.main.temp);
-    let weatherType = cityData.weather[0].main;
-    let weatherImgString;
-    if (cityData.weather[0].main == "Clouds") 
-    {
-        weatherImgString = "images/cloudy.png";
+                    fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${latitude}&lon=${longitude}&appid=cb38692bd004c473f1b609a257eb5b37`)
+                            .then(e => e.json())
+                    .then(data => {
+                        document.body.classList.add('main');
+                        document.body.classList.remove('home');
 
-    } 
-    if(cityData.weather[0].main == "Clear") 
-    {
-        weatherImgString = "images/cloudy.png";
-    } 
-    if(cityData.weather[0].main == "Haze") 
-    {
-        weatherImgString = "images/windy.png";
-    } 
-    if(cityData.weather[0].main == "Rain") 
-    {
-        weatherImgString = "images/Rainy.png";
-    } 
-    if(cityData.weather[0].main == "Drizzle") 
-    {
-        weatherImgString = "images/Tornado.png";
-    } 
-    if (cityData.weather[0].main == "Mist") 
-    {
-        weatherImgString = "images/windy.png";
-    }
+                        document.querySelector("#location b").textContent = data.name;
+                        document.querySelector("#speed b").textContent = (data.wind.speed*3.6) + "kmph"; 
+                        document.querySelector("#humidity b").textContent = data.main.humidity;
+                        document.querySelector("#timezone b").textContent = secondsToTimeZoneString(data.timezone);
+                        document.querySelector("#pressure b").textContent = data.main.pressure;
+                        document.querySelector("#direction b").textContent = degreesToWindDirection(data.wind.deg)
+                        document.querySelector("#uv-index b");
+                        document.querySelector("#feels b").textContent = data.main.feels_like;
+                    })        
+                    .catch(e => {
+                        errorElement.textContent = e.message;
+                    });
+                });
+            }
 
-    let CardDiv = document.createElement("div");
-    CardDiv.classList.add("single-card");
-    CardDiv.classList.add("animate__animated", "animate__fadeIn");
-    let cardHtml = `<div class="background-svg">
-                        <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="343"
-                        height="175"
-                        viewBox="0 0 343 175"
-                        fill="none"
-                        >
-                        <path
-                            d="M0.42749 66.4396C0.42749 31.6455 0.42749 14.2484 11.7535 5.24044C23.0794 -3.76754 40.0301 0.147978 73.9315 7.97901L308.33 62.1238C324.686 65.9018 332.864 67.7909 337.646 73.8031C342.427 79.8154 342.427 88.2086 342.427 104.995V131C342.427 151.742 342.427 162.113 335.984 168.556C329.54 175 319.169 175 298.427 175H44.4275C23.6857 175 13.3148 175 6.87114 168.556C0.42749 162.113 0.42749 151.742 0.42749 131V66.4396Z"
-                            fill="url(#paint0_linear_642_26)"
-                        />
-                        <defs>
-                            <linearGradient
-                            id="paint0_linear_642_26"
-                            x1="0.42749"
-                            y1="128"
-                            x2="354.57"
-                            y2="128"
-                            gradientUnits="userSpaceOnUse"
-                            >
-                            <stop stop-color="#5936B4" />
-                            <stop offset="1" stop-color="#362A84" />
-                            </linearGradient>
-                        </defs>
-                        </svg>
-                    </div>
-                    <div class="single-card-top">
-                        <div class="temp">${temperature}°</div>
-                        <div class="weather-img">
-                        <img src="${weatherImgString}" alt="cloudy" />
-                        </div>
-                    </div>
-                    <div class="single-card-bottom">
-                        <div class="card-bottom-left">
-                        <div class="atmospheric-pressure">
-                            <div class="atm-pre-high">H:${maxTemp}</div>
-                            <div class="atm-pre-low">L:${minTemp}</div>
-                        </div>
-                        <div class="city-name">${cityName}</div>
-                        </div>
-                        <div class="card-bottom-right">${weatherType}</div>
-                    </div>`
-             CardDiv.innerHTML = cardHtml;
-             currentCardsArr.push({temperature,CardDiv}); 
-             appendUi(currentCardsArr);  
-}
-
-function appendUi(currentCardsArr) {
-    cardsContainer.innerHTML = "";
-    currentCardsArr.sort((a,b) => a.temperature - b.temperature);
-    currentCardsArr.forEach((card) => {
-        cardsContainer.appendChild(card.CardDiv);
-    })
-}
+            // navigator.permissions.query({ name: "geolocation" }).then((permissionStatus) => {
+                /**
+                 * If user has denied permission to view location
+                 */
+                // if (permissionStatus.state === 'denied') {
+                //     errorElement.textContent = `Location permission denied by the user.`
+                // } 
+                
+                /**
+                 * Prompt has shown
+                 */
+                // else {
+                    useUserLocation();
+            //     }
+            // });
+        } else {
+            errorElement.textContent = "Geolocation is not supported by your browser.";
+        }
+    });
+});
